@@ -1,0 +1,24 @@
+{
+  "name": "clickhouse-sink-orders",
+  "config": {
+    "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+    "tasks.max": "1",
+    "topics": "orders_analytics",
+    "hostname": "clickhouse-local",
+    "port": "8123",
+    "database": "analytics",
+    "username": "admin",
+    "password": "test123",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "insert.mode": "INSERT",
+    "batch.size": "1000",
+    "buffer.count.records": "1000",
+    "buffer.flush.time": "5000",
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+    "errors.deadletterqueue.topic.name": "orders_analytics-dlq",
+    "errors.deadletterqueue.topic.replication.factor": "1"
+  }
+}
