@@ -1,0 +1,259 @@
+services:
+  # ==============================
+  # OLTP Database - MySQL 8.0
+  # ==============================
+  mysql-local:
+    image: mysql:8.0
+    platform: linux/amd64
+    container_name: mysql-local
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: test123
+      MYSQL_DATABASE: ecommerce
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: test123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./scripts/init-mysql.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ptest123" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kafka-clickhouse-network
+
+  # ==============================
+  # Event Streaming - Kafka KRaft Cluster
+  # ==============================
+  kafka-local1:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka-local1
+    hostname: kafka-local1
+    restart: unless-stopped
+    ports:
+      - "19092:19092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT'
+      KAFKA_LISTENERS: 'INTERNAL://kafka-local1:29092,CONTROLLER://kafka-local1:29093,EXTERNAL://0.0.0.0:19092'
+      KAFKA_ADVERTISED_LISTENERS: 'INTERNAL://kafka-local1:29092,EXTERNAL://localhost:19092'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka-local1:29093,2@kafka-local2:29093,3@kafka-local3:29093'
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - ./kafka/kafka-local1-data:/tmp/kraft-combined-logs
+    networks:
+      - kafka-clickhouse-network
+
+  kafka-local2:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka-local2
+    hostname: kafka-local2
+    restart: unless-stopped
+    ports:
+      - "19093:19093"
+    environment:
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT'
+      KAFKA_LISTENERS: 'INTERNAL://kafka-local2:29092,CONTROLLER://kafka-local2:29093,EXTERNAL://0.0.0.0:19093'
+      KAFKA_ADVERTISED_LISTENERS: 'INTERNAL://kafka-local2:29092,EXTERNAL://localhost:19093'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka-local1:29093,2@kafka-local2:29093,3@kafka-local3:29093'
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - ./kafka/kafka-local2-data:/tmp/kraft-combined-logs
+    networks:
+      - kafka-clickhouse-network
+
+  kafka-local3:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka-local3
+    hostname: kafka-local3
+    restart: unless-stopped
+    ports:
+      - "19094:19094"
+    environment:
+      KAFKA_NODE_ID: 3
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT'
+      KAFKA_LISTENERS: 'INTERNAL://kafka-local3:29092,CONTROLLER://kafka-local3:29093,EXTERNAL://0.0.0.0:19094'
+      KAFKA_ADVERTISED_LISTENERS: 'INTERNAL://kafka-local3:29092,EXTERNAL://localhost:19094'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka-local1:29093,2@kafka-local2:29093,3@kafka-local3:29093'
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - ./kafka/kafka-local3-data:/tmp/kraft-combined-logs
+    networks:
+      - kafka-clickhouse-network
+
+  # ==============================
+  # Kafka Connect with ClickHouse Sink
+  # ==============================
+  kafka-connect-local:
+    image: confluentinc/cp-kafka-connect:7.5.0
+    container_name: kafka-connect-local
+    restart: unless-stopped
+    depends_on:
+      kafka-local1:
+        condition: service_started
+      kafka-local2:
+        condition: service_started
+      kafka-local3:
+        condition: service_started
+      clickhouse-local:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka-local1:29092,kafka-local2:29092,kafka-local3:29092
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: "clickhouse-sink-group"
+      CONNECT_CONFIG_STORAGE_TOPIC: "connect-configs"
+      CONNECT_OFFSET_STORAGE_TOPIC: "connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "connect-status"
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "kafka-connect-local"
+    volumes:
+      - ./kafka-connect/connectors:/usr/share/confluent-hub-components
+    command:
+      - bash
+      - -c
+      - |
+        confluent-hub install --no-prompt clickhouse/clickhouse-kafka-connect:v1.0.0
+        /etc/confluent/docker/run
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8083/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kafka-clickhouse-network
+
+  # ==============================
+  # OLAP Database - ClickHouse
+  # ==============================
+  clickhouse-local:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse-local
+    restart: unless-stopped
+    ports:
+      - "8123:8123"  # HTTP interface
+      - "9000:9000"  # Native client
+    environment:
+      CLICKHOUSE_DB: analytics
+      CLICKHOUSE_USER: admin
+      CLICKHOUSE_PASSWORD: "test123"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./scripts/init-clickhouse.sql:/docker-entrypoint-initdb.d/init.sql
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: [ "CMD", "clickhouse-client", "--query", "SELECT 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kafka-clickhouse-network
+
+  # ==============================
+  # Monitoring & Visualization - Grafana
+  # ==============================
+  grafana-local:
+    image: grafana/grafana:latest
+    container_name: grafana-local
+    restart: unless-stopped
+    depends_on:
+      clickhouse-local:
+        condition: service_healthy
+    ports:
+      - "3001:3000"  # Changed to 3001 to avoid conflict with NestJS
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: test123
+      GF_INSTALL_PLUGINS: vertamedia-clickhouse-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - kafka-clickhouse-network
+
+  # ==============================
+  # Optional: Kafka UI for monitoring
+  # ==============================
+  kafka-ui-local:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui-local
+    restart: unless-stopped
+    depends_on:
+      - kafka-local1
+      - kafka-local2
+      - kafka-local3
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-local1:29092,kafka-local2:29092,kafka-local3:29092
+    networks:
+      - kafka-clickhouse-network
+
+# ==============================
+# Volumes
+# ==============================
+volumes:
+  mysql-data:
+    driver: local
+  kafka-local1-data:
+    driver: local
+  kafka-local2-data:
+    driver: local
+  kafka-local3-data:
+    driver: local
+  clickhouse-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# ==============================
+# Networks
+# ==============================
+networks:
+  kafka-clickhouse-network:
+    driver: bridge
