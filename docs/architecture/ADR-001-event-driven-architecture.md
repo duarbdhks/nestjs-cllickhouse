@@ -152,7 +152,7 @@ export class OutboxRelayService {
 order.events          # 주문 이벤트 (OrderCreated, OrderCancelled)
 payment.events        # 결제 이벤트 (PaymentCompleted, PaymentFailed)
 inventory.events      # 재고 이벤트 (StockReserved, StockReleased)
-analytics.orders      # ClickHouse 적재용 (변환된 데이터)
+orders_analytics      # ClickHouse 적재용 (변환된 데이터)
 ```
 
 **Producer**:
@@ -200,9 +200,9 @@ export class KafkaConsumerService {
           status: 'PENDING',
         };
 
-        // analytics.orders 토픽으로 발행 (ClickHouse Sink가 소비)
+        // orders_analytics 토픽으로 발행 (ClickHouse Sink가 소비)
         await this.producer.send({
-          topic: 'analytics.orders',
+          topic: 'orders_analytics',
           messages: [{ value: JSON.stringify(analyticsEvent) }],
         });
       },
@@ -222,7 +222,7 @@ export class KafkaConsumerService {
   "config": {
     "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
     "tasks.max": "1",
-    "topics": "analytics.orders",
+    "topics": "orders_analytics",
     "clickhouse.server.url": "clickhouse",
     "clickhouse.server.port": "8123",
     "clickhouse.server.database": "analytics",
@@ -401,7 +401,7 @@ graph TB
 
     subgraph "Event Streaming"
         Kafka[Apache Kafka]
-        Topics["Topics:<br/>order.events<br/>analytics.orders"]
+        Topics["Topics:<br/>order.events<br/>orders_analytics"]
         KafkaConnect[Kafka Connect<br/>ClickHouse Sink]
     end
 

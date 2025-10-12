@@ -34,7 +34,7 @@
   - [ ] 재시도 로직
 - [ ] Kafka Consumer (Event Transformer)
   - [ ] `order.events` 소비
-  - [ ] `analytics.orders` 발행
+  - [ ] `orders_analytics` 발행
 
 ### Phase 3: 분석 파이프라인 (예정 ⏳)
 

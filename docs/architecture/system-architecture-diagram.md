@@ -36,7 +36,7 @@ graph TB
 
     subgraph "Event Streaming"
         Kafka[Apache Kafka]
-        Topics["Topics:<br/>• order.events<br/>• payment.events<br/>• inventory.events<br/>• analytics.orders"]
+        Topics["Topics:<br/>• order.events<br/>• payment.events<br/>• inventory.events<br/>• orders_analytics"]
         KafkaConnect[Kafka Connect<br/>ClickHouse Sink]
     end
 
@@ -124,9 +124,9 @@ sequenceDiagram
 
     Kafka->>Consumer: Consume order.events
     Consumer->>Consumer: Transform to analytics format
-    Consumer->>Kafka: Produce to analytics.orders
+    Consumer->>Kafka: Produce to orders_analytics
 
-    Kafka->>KafkaConnect: Stream analytics.orders
+    Kafka->>KafkaConnect: Stream orders_analytics
     KafkaConnect->>ClickHouse: Batch INSERT (1000 records)
     ClickHouse->>ClickHouse: Update Materialized Views
 
@@ -158,7 +158,7 @@ flowchart LR
 
     subgraph "3. Event Transform"
         E --> F[Kafka Consumer<br/>Event Transformer]
-        F --> G[Kafka: analytics.orders]
+        F --> G[Kafka: orders_analytics]
     end
 
     subgraph "4. ClickHouse Sink"
@@ -212,7 +212,7 @@ mindmap
     Event Streaming
       Apache Kafka
         order.events
-        analytics.orders
+        orders_analytics
       Kafka Connect
         ClickHouse Sink
         JSON Converter
@@ -377,7 +377,7 @@ erDiagram
 flowchart TD
     A[MySQL: orders table] -->|Outbox Pattern| B[Outbox table]
     B -->|Cron Polling| C[Kafka: order.events]
-    C -->|Consumer Transform| D[Kafka: analytics.orders]
+    C -->|Consumer Transform| D[Kafka: orders_analytics]
     D -->|Kafka Connect Sink| E[ClickHouse: orders_analytics]
 
     E --> F[Materialized View:<br/>daily_sales_mv]

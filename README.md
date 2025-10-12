@@ -479,9 +479,9 @@ export class KafkaConsumerService {
         // 분석용 포맷으로 변환
         const analyticsEvent = this.transformToAnalytics(topic, payload);
 
-        // analytics.orders 토픽으로 발행 (ClickHouse Sink가 소비)
+        // orders_analytics 토픽으로 발행 (ClickHouse Sink가 소비)
         await this.kafkaProducer.send({
-          topic: 'analytics.orders',
+          topic: 'orders_analytics',
           messages: [{ value: JSON.stringify(analyticsEvent) }],
         });
       },
@@ -610,7 +610,7 @@ OUTBOX_BATCH_SIZE=100
 
 #### Phase 4: Kafka Consumer 구현
 - [ ] KafkaConsumerService (Event Transformer)
-- [ ] analytics.orders 토픽 발행
+- [ ] orders_analytics 토픽 발행
 - [ ] 이벤트 변환 로직
 
 #### Phase 5: Analytics API 구현
