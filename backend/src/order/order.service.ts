@@ -11,32 +11,27 @@ export class OrderService {
   private readonly logger = new Logger(OrderService.name);
 
   constructor(
-    @InjectRepository(OrderEntity)
-    private readonly orderRepository: Repository<OrderEntity>,
-    @InjectRepository(OrderItemEntity)
-    private readonly orderItemRepository: Repository<OrderItemEntity>,
-    @InjectRepository(UserEntity)
-    private readonly userRepository: Repository<UserEntity>,
+    @InjectRepository(OrderEntity) private readonly orderRepository: Repository<OrderEntity>,
     private readonly outboxService: OutboxService,
     private readonly dataSource: DataSource,
   ) {}
 
   /**
-   * Create order with Outbox Pattern
+   * Create order with Outbox Pattern (Hybrid Events)
    * Order creation and outbox event are saved in the same transaction
+   * Payload includes only changing fields (status, totalAmount, itemsCount)
+   * Consumer fetches static data (userEmail) from database
    */
   async createOrder(dto: CreateOrderDto): Promise<OrderResponseDto> {
-    // Lookup user email before transaction (for outbox payload enrichment)
-    const user = await this.userRepository.findOne({
-      where: { id: dto.userId },
-      select: ['email'],
-    });
-
-    if (!user) {
-      throw new NotFoundException(`User ${dto.userId} not found`);
-    }
-
     return await this.dataSource.transaction(async manager => {
+      // Validate user exists within transaction
+      const user = await manager.findOne(UserEntity, {
+        where: { id: dto.userId },
+      });
+
+      if (!user) {
+        throw new NotFoundException(`User ${dto.userId} not found`);
+      }
       // 1. Create and save Order
       const orderId = uuidv4();
 
@@ -86,7 +81,9 @@ export class OrderService {
         this.logger.log(`Saved ${orderItems.length} order items for order ${orderId}`);
       }
 
-      // 3. Publish Outbox event (same transaction)
+      // 3. Publish Outbox event (same transaction) - Hybrid Events
+      // Only include changing fields (status, totalAmount, itemsCount)
+      // Consumer will fetch static data (userEmail) from database
       await this.outboxService.publishEvent(manager, {
         aggregateId: orderId,
         aggregateType: 'Order',
@@ -94,12 +91,9 @@ export class OrderService {
         payload: {
           orderId: savedOrder.id,
           userId: savedOrder.userId,
-          userEmail: user.email,
           totalAmount: Number(savedOrder.totalAmount),
           itemsCount: dto.items?.length || 0,
           status: savedOrder.status,
-          shippingAddress: savedOrder.shippingAddress,
-          items: dto.items || [],
           createdAt: savedOrder.createdAt.toISOString(),
         },
       });
@@ -122,6 +116,51 @@ export class OrderService {
     return this.orderRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * Soft delete order with Outbox Pattern (Admin only)
+   * Marks order as deleted and publishes OrderDeleted event
+   */
+  async deleteOrder(orderId: string, deletedBy: string): Promise<void> {
+    // Check if order exists
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+
+    if (!order) {
+      throw new NotFoundException(`Order ${orderId} not found`);
+    }
+
+    if (order.deletedAt) {
+      throw new Error(`Order ${orderId} is already deleted`);
+    }
+
+    return await this.dataSource.transaction(async manager => {
+      // 1. Soft delete order (set deleted_at timestamp)
+      const deletedAt = new Date();
+      await manager.update(OrderEntity, { id: orderId }, { deletedAt });
+
+      this.logger.log(`Order soft-deleted: ${orderId} by admin ${deletedBy}`);
+
+      // 2. Publish OrderDeleted event to Outbox (same transaction)
+      // Hybrid Events: Minimal payload (orderId, deletedAt, deletedBy, version)
+      // Consumer will fetch Order + User + OrderItem data from database
+      const version = Date.now(); // Unix timestamp in milliseconds for version control
+
+      await this.outboxService.publishEvent(manager, {
+        aggregateId: orderId,
+        aggregateType: 'Order',
+        eventType: 'OrderDeleted',
+        payload: {
+          eventType: 'OrderDeleted',
+          orderId: orderId,
+          deletedAt: deletedAt.toISOString(),
+          deletedBy: deletedBy,
+          version: version,
+        },
+      });
+
+      this.logger.log(`OrderDeleted event published for order ${orderId} with version ${version}`);
     });
   }
 }

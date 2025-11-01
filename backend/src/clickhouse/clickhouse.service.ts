@@ -125,11 +125,12 @@ export class ClickHouseService implements OnModuleInit {
    */
   async getOverallStats(): Promise<any> {
     const query = `
-        SELECT count()           as total_orders,
-               sum(total_amount) as total_revenue,
-               avg(total_amount) as avg_order_value,
-               uniq(user_id)     as unique_customers
-        FROM analytics.orders_analytics
+      SELECT count()           as total_orders,
+             sum(total_amount) as total_revenue,
+             avg(total_amount) as avg_order_value,
+             uniq(user_id)     as unique_customers
+      FROM analytics.orders_analytics FINAL
+      WHERE is_deleted = 0
     `;
 
     const resultSet = await this.client.query({
