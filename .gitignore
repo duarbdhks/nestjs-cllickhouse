@@ -28,7 +28,7 @@ kafka-data/
 zookeeper-data/
 zookeeper-logs/
 grafana-data/
-kafka/
+/kafka/
 
 # Logs
 logs/
@@ -48,3 +48,6 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+# Claude Code
+.serena/
