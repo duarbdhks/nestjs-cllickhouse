@@ -168,13 +168,13 @@ INSERT INTO users (id, email, password_hash, name, phone) VALUES
 ON DUPLICATE KEY UPDATE name=VALUES(name);
 
 -- Sample Products
-INSERT INTO products (id, name, description, price, category) VALUES
-('prod-1', 'Laptop', '15-inch powerful laptop', 1299.99, 'Electronics'),
-('prod-2', 'Wireless Mouse', 'Ergonomic wireless mouse', 29.99, 'Electronics'),
-('prod-3', 'Coffee Maker', 'Automatic coffee maker', 89.99, 'Home & Kitchen'),
-('prod-4', 'Running Shoes', 'Comfortable running shoes', 79.99, 'Sports'),
-('prod-5', 'Backpack', 'Durable travel backpack', 49.99, 'Sports'),
-('prod-6', 'Desk Lamp', 'LED desk lamp with USB', 34.99, 'Home & Kitchen')
+INSERT INTO products (id, name, description, price, category, image_url) VALUES
+('prod-1', 'Laptop', '15-inch powerful laptop', 1299.99, 'Electronics', 'https://helios-i.mashable.com/imagery/articles/05djrP5PjtVB7CcMtvrTOAP/hero-image.fill.size_1200x1200.v1723100793.jpg'),
+('prod-2', 'Wireless Mouse', 'Ergonomic wireless mouse', 29.99, 'Electronics', 'https://www.lemokey.com/cdn/shop/files/Lemokey-G1-wireless-mouse-black.jpg'),
+('prod-3', 'Coffee Maker', 'Automatic coffee maker', 89.99, 'Home & Kitchen', 'https://www.bhg.com/thmb/sog5eX8qb6bk4JIWdMnM4qAbQVo=/4000x0/filters:no_upscale():strip_icc()/bhg-product-mr-coffee-5-cup-mini-brew-switch-coffee-maker-14-rkilgore-1410-1-7365d15ab5594daeb983c081502ba0c4.jpeg'),
+('prod-4', 'Running Shoes', 'Comfortable running shoes', 79.99, 'Sports', 'https://images.contentstack.io/v3/assets/bltbb5996c454cd1f4d/blt331a66acb7619b33/675099f46cdeea581f73ae4b/running-shoe-guide.jpg'),
+('prod-5', 'Backpack', 'Durable travel backpack', 49.99, 'Sports', 'https://kr.stussy.com/cdn/shop/files/134252_GREN_5_bea70f9d-4e29-4f05-add6-dd00ffab1c0b.jpg'),
+('prod-6', 'Desk Lamp', 'LED desk lamp with USB', 34.99, 'Home & Kitchen', 'https://m.media-amazon.com/images/I/71D2YNJoNNL._AC_UF1000,1000_QL80_.jpg')
 ON DUPLICATE KEY UPDATE name=VALUES(name);
 
 -- Sample Inventory
