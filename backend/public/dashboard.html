@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>분석 대시보드 - E-Commerce Analytics</title>
+
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Pretendard Font -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Pretendard Variable', 'Pretendard', 'system-ui', 'sans-serif']
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f5f3ff',
+                            100: '#ede9fe',
+                            200: '#ddd6fe',
+                            300: '#c4b5fd',
+                            400: '#a78bfa',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                            800: '#5b21b6',
+                            900: '#4c1d95'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 font-sans antialiased">
+
+    <!-- Header Navigation -->
+    <header class="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+        <div class="container mx-auto px-4 sm:px-6">
+            <div class="flex h-16 items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-500">
+                        <i data-lucide="shopping-bag" class="h-6 w-6 text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-gray-900 dark:text-white">E-Commerce Shop</h1>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">분석 대시보드</p>
+                    </div>
+                </div>
+
+                <nav class="flex items-center gap-4">
+                    <a href="/" class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <i data-lucide="shopping-cart" class="h-4 w-4"></i>
+                        <span class="hidden sm:inline">상품</span>
+                    </a>
+                    <a href="/dashboard.html" class="flex items-center gap-2 rounded-lg bg-primary-50 dark:bg-primary-900/20 px-4 py-2 text-sm font-medium text-primary-700 dark:text-primary-400">
+                        <i data-lucide="bar-chart-3" class="h-4 w-4"></i>
+                        <span class="hidden sm:inline">대시보드</span>
+                    </a>
+                    <button id="darkModeToggle" class="inline-flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <i data-lucide="moon" class="h-5 w-5"></i>
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 sm:px-6 py-8 space-y-6">
+
+        <!-- Page Header -->
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">📊 분석 대시보드</h1>
+                <p class="text-sm text-gray-600 dark:text-gray-400">실시간 데이터 분석 및 모니터링</p>
+            </div>
+            <button id="refreshBtn" class="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 active:bg-primary-800 transition-colors shadow-sm">
+                <i data-lucide="refresh-cw" class="h-4 w-4"></i>
+                <span>새로고침</span>
+            </button>
+        </div>
+
+        <!-- System Health -->
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-6 py-3 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/20">
+                            <i data-lucide="activity" class="h-4 w-4 text-green-600 dark:text-green-400"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">시스템 상태</h2>
+                        </div>
+                    </div>
+                    <div id="healthStatus" class="flex items-center gap-4">
+                        <div class="flex items-center gap-2 text-gray-500 text-sm">
+                            <i data-lucide="loader" class="h-4 w-4 animate-spin"></i>
+                            <span>상태 확인 중...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <!-- Total Orders -->
+                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/20">
+                            <i data-lucide="shopping-bag" class="h-6 w-6 text-blue-600 dark:text-blue-400"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">총 주문</p>
+                        <h3 id="totalOrders" class="text-3xl font-bold text-gray-900 dark:text-white mt-1">-</h3>
+                    </div>
+                </div>
+
+                <!-- Total Revenue -->
+                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/20">
+                            <i data-lucide="trending-up" class="h-6 w-6 text-green-600 dark:text-green-400"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">총 매출</p>
+                        <h3 id="totalRevenue" class="text-3xl font-bold text-gray-900 dark:text-white mt-1">-</h3>
+                    </div>
+                </div>
+
+                <!-- Average Order Value -->
+                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/20">
+                            <i data-lucide="wallet" class="h-6 w-6 text-purple-600 dark:text-purple-400"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">평균 주문 금액</p>
+                        <h3 id="avgOrderValue" class="text-3xl font-bold text-gray-900 dark:text-white mt-1">-</h3>
+                    </div>
+                </div>
+
+                <!-- Unique Customers -->
+                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/20">
+                            <i data-lucide="users" class="h-6 w-6 text-orange-600 dark:text-orange-400"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">고유 고객 수</p>
+                        <h3 id="uniqueCustomers" class="text-3xl font-bold text-gray-900 dark:text-white mt-1">-</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Daily Sales Table -->
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+                <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100 dark:bg-primary-900/20">
+                            <i data-lucide="calendar" class="h-5 w-5 text-primary-600 dark:text-primary-400"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">일별 매출 집계</h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">최근 일별 매출 데이터</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 dark:bg-gray-900/50">
+                            <tr>
+                                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">날짜</th>
+                                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">주문 수</th>
+                                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">총 매출</th>
+                                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">평균 주문 금액</th>
+                                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">고유 고객</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dailySalesBody" class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <tr>
+                                <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                                    <i data-lucide="loader" class="h-6 w-6 animate-spin inline-block mb-2"></i>
+                                    <p>데이터 로딩 중...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Hourly Sales Table -->
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+                <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/20">
+                            <i data-lucide="clock" class="h-5 w-5 text-blue-600 dark:text-blue-400"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">시간별 주문 집계</h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">최근 24시간 데이터</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 dark:bg-gray-900/50">
+                            <tr>
+                                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">시간</th>
+                                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">주문 수</th>
+                                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">총 매출</th>
+                                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">평균 주문 금액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hourlySalesBody" class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <tr>
+                                <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                                    <i data-lucide="loader" class="h-6 w-6 animate-spin inline-block mb-2"></i>
+                                    <p>데이터 로딩 중...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Order Status Table -->
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+                <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/20">
+                            <i data-lucide="pie-chart" class="h-5 w-5 text-green-600 dark:text-green-400"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">주문 상태별 분포</h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">상태별 주문 통계</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 dark:bg-gray-900/50">
+                            <tr>
+                                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">날짜</th>
+                                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">상태</th>
+                                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">주문 수</th>
+                                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">총 금액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderStatusBody" class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <tr>
+                                <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                                    <i data-lucide="loader" class="h-6 w-6 animate-spin inline-block mb-2"></i>
+                                    <p>데이터 로딩 중...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+    </main>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Dark mode toggle
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        darkModeToggle?.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            lucide.createIcons();
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAllData();
+
+            const refreshBtn = document.getElementById('refreshBtn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const icon = this.querySelector('i[data-lucide="refresh-cw"]');
+                    if (icon) {
+                        icon.classList.add('animate-spin');
+                    }
+
+                    loadAllData().finally(() => {
+                        if (icon) {
+                            icon.classList.remove('animate-spin');
+                        }
+                    });
+                });
+            }
+        });
+
+        async function loadAllData() {
+            await Promise.all([
+                loadHealthStatus(),
+                loadOverallStats(),
+                loadDailySales(),
+                loadHourlySales(),
+                loadOrderStatus()
+            ]);
+        }
+
+        async function loadHealthStatus() {
+            try {
+                const response = await fetch('/api/analytics/health');
+                const data = await response.json();
+
+                const statusDiv = document.getElementById('healthStatus');
+                const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                if (data.clickhouse) {
+                    const healthHTML = `
+                        <div class="inline-flex items-center gap-2 rounded-lg bg-green-100 dark:bg-green-900/20 px-3 py-1.5 text-green-700 dark:text-green-400">
+                            <div class="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                            <span class="font-medium text-sm">ClickHouse 연결 정상</span>
+                        </div>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">마지막 업데이트: ${now}</span>
+                    `;
+                    statusDiv.innerHTML = healthHTML;
+                } else {
+                    const healthHTML = `
+                        <div class="inline-flex items-center gap-2 rounded-lg bg-red-100 dark:bg-red-900/20 px-3 py-1.5 text-red-700 dark:text-red-400">
+                            <i data-lucide="alert-circle" class="h-4 w-4"></i>
+                            <span class="font-medium text-sm">ClickHouse 연결 실패</span>
+                        </div>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">확인 시각: ${now}</span>
+                    `;
+                    statusDiv.innerHTML = healthHTML;
+                }
+                lucide.createIcons();
+            } catch (error) {
+                const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                document.getElementById('healthStatus').innerHTML = `
+                    <div class="inline-flex items-center gap-2 rounded-lg bg-red-100 dark:bg-red-900/20 px-3 py-1.5 text-red-700 dark:text-red-400">
+                        <i data-lucide="alert-circle" class="h-4 w-4"></i>
+                        <span class="font-medium text-sm">연결 오류</span>
+                    </div>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">오류 시각: ${now}</span>
+                `;
+                lucide.createIcons();
+            }
+        }
+
+        async function loadOverallStats() {
+            try {
+                const response = await fetch('/api/analytics/stats');
+                const data = await response.json();
+
+                document.getElementById('totalOrders').textContent = formatNumber(data.total_orders);
+                document.getElementById('totalRevenue').textContent = formatCurrency(data.total_revenue);
+                document.getElementById('avgOrderValue').textContent = formatCurrency(data.avg_order_value);
+                document.getElementById('uniqueCustomers').textContent = formatNumber(data.unique_customers);
+            } catch (error) {
+                console.error('Failed to load overall stats:', error);
+            }
+        }
+
+        async function loadDailySales() {
+            try {
+                const response = await fetch('/api/analytics/daily-sales');
+                const data = await response.json();
+
+                const tbody = document.getElementById('dailySalesBody');
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">데이터가 없습니다</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.map(row => `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${row.order_date}</td>
+                        <td class="px-6 py-4 text-gray-700 dark:text-gray-300">${formatNumber(row.order_count)}</td>
+                        <td class="px-6 py-4 font-semibold text-gray-900 dark:text-white">${formatCurrency(row.total_revenue)}</td>
+                        <td class="px-6 py-4 text-gray-700 dark:text-gray-300">${formatCurrency(row.avg_order_value)}</td>
+                        <td class="px-6 py-4 text-gray-700 dark:text-gray-300">${formatNumber(row.unique_customers)}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load daily sales:', error);
+                document.getElementById('dailySalesBody').innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-red-500">데이터 로딩 실패</td></tr>';
+            }
+        }
+
+        async function loadHourlySales() {
+            try {
+                const response = await fetch('/api/analytics/hourly-sales?limit=24');
+                const data = await response.json();
+
+                const tbody = document.getElementById('hourlySalesBody');
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500">데이터가 없습니다</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.map(row => `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${formatDateTime(row.order_hour)}</td>
+                        <td class="px-6 py-4 text-gray-700 dark:text-gray-300">${formatNumber(row.order_count)}</td>
+                        <td class="px-6 py-4 font-semibold text-gray-900 dark:text-white">${formatCurrency(row.total_revenue)}</td>
+                        <td class="px-6 py-4 text-gray-700 dark:text-gray-300">${formatCurrency(row.avg_order_value)}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load hourly sales:', error);
+                document.getElementById('hourlySalesBody').innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-red-500">데이터 로딩 실패</td></tr>';
+            }
+        }
+
+        async function loadOrderStatus() {
+            try {
+                const response = await fetch('/api/analytics/order-status');
+                const data = await response.json();
+
+                const tbody = document.getElementById('orderStatusBody');
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500">데이터가 없습니다</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.map(row => `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${row.order_date}</td>
+                        <td class="px-6 py-4">${getStatusBadge(row.status)}</td>
+                        <td class="px-6 py-4 text-gray-700 dark:text-gray-300">${formatNumber(row.order_count)}</td>
+                        <td class="px-6 py-4 font-semibold text-gray-900 dark:text-white">${formatCurrency(row.total_amount)}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load order status:', error);
+                document.getElementById('orderStatusBody').innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-red-500">데이터 로딩 실패</td></tr>';
+            }
+        }
+
+        // Utility functions
+        function formatNumber(value) {
+            return Number(value).toLocaleString('ko-KR');
+        }
+
+        function formatCurrency(value) {
+            return '₩' + Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 0 });
+        }
+
+        function formatDateTime(dateTime) {
+            const date = new Date(dateTime);
+            return date.toLocaleString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function getStatusBadge(status) {
+            const statusConfig = {
+                'pending': { label: '대기중', color: 'yellow' },
+                'processing': { label: '처리중', color: 'blue' },
+                'completed': { label: '완료', color: 'green' },
+                'cancelled': { label: '취소', color: 'red' }
+            };
+
+            const config = statusConfig[status] || { label: status, color: 'gray' };
+            return `<span class="inline-flex items-center rounded-full bg-${config.color}-100 dark:bg-${config.color}-900/20 px-3 py-1 text-xs font-medium text-${config.color}-700 dark:text-${config.color}-400">${config.label}</span>`;
+        }
+    </script>
+</body>
+</html>
