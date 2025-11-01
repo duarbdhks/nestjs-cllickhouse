@@ -114,6 +114,8 @@ curl http://localhost:8083/connectors/clickhouse-sink-orders/status
 | **Kafka Connect** | http://localhost:8083 | - |
 | **ClickHouse HTTP** | http://localhost:8123 | `admin` / `test123` |
 | **Grafana** | http://localhost:3001 | `admin` / `test123` |
+| **Backend API** | http://localhost:3000 | - |
+| **HTML Dashboard** | http://localhost:3000/ | - |
 
 ## 📊 데이터 흐름
 
@@ -240,18 +242,23 @@ docker exec -it clickhouse clickhouse-client --query \
 
 ## 🧪 테스트 시나리오
 
-### 1. 주문 생성 (예정)
+### 1. 주문 생성
 
 ```bash
 # NestJS API로 주문 생성
 curl -X POST http://localhost:3000/api/orders \
   -H "Content-Type: application/json" \
   -d '{
-    "userId": "user-1",
+    "userId": 1,
+    "status": "PENDING",
+    "totalAmount": 50000,
     "items": [
-      {"productId": "prod-1", "quantity": 2, "price": 29.99}
-    ],
-    "totalAmount": 59.98
+      {
+        "productId": 101,
+        "quantity": 2,
+        "price": 25000
+      }
+    ]
   }'
 ```
 
@@ -325,6 +332,7 @@ docker-compose restart kafka
 
 ## 📚 참고 문서
 
+- **[백엔드 상세 README](./backend/README.md)** - NestJS 구현 상세, API 엔드포인트, 모듈 설명
 - [아키텍처 설계](./docs/architecture/system-architecture-diagram.md)
 - [ADR-001: Event-Driven Architecture](./docs/architecture/ADR-001-event-driven-architecture.md)
 - [Database Schema Design](./docs/architecture/database-schema-design.md)
@@ -336,14 +344,60 @@ docker-compose restart kafka
 - [ClickHouse Kafka Integration](https://clickhouse.com/docs/en/engines/table-engines/integrations/kafka)
 - [NestJS Task Scheduling](https://docs.nestjs.com/techniques/task-scheduling)
 
-## 📝 다음 단계
+## 📝 구현 현황
 
-1. ✅ 로컬 인프라 구축 (Docker Compose)
-2. ⏳ NestJS 백엔드 구현
-3. ⏳ Outbox Relay Service 구현
-4. ⏳ Kafka Consumer 구현
-5. ⏳ Grafana 대시보드 구성
-6. ⏳ React 프론트엔드 (Optional)
+1. ✅ **로컬 인프라 구축** (Docker Compose)
+   - Kafka 3-node KRaft cluster
+   - MySQL, ClickHouse, Grafana, Kafka Connect
+
+2. ✅ **NestJS 백엔드 구현** (대부분 완료)
+   - ✅ Order Module (CRUD API + Outbox Pattern)
+   - ✅ Outbox Module (Outbox Relay Service with Cron)
+   - ✅ Kafka Module (Producer + Consumer/Transformer)
+   - ✅ ClickHouse Module (쿼리 클라이언트)
+   - ✅ Analytics Module (집계 API)
+   - ✅ User, Product Module (기본 엔티티)
+   - ⚠️ **미완성**: Payment/Inventory Entity, 데이터 매핑 4개 필드
+
+3. ⏳ **Grafana 대시보드 구성** (인프라 준비 완료, 대시보드 미구성)
+
+4. ⏳ **React 프론트엔드** (Optional)
+   - ✅ 정적 HTML 대시보드 제공 중 (`public/`)
+
+## ⚠️ 알려진 제약사항
+
+### 1. 데이터 매핑 미완성 (4개 필드)
+
+`backend/src/kafka/kafka-consumer.service.ts`의 이벤트 변환 로직에서 다음 필드가 미완성 상태입니다:
+
+```typescript
+user_email: 'TODO',           // 사용자 이메일 조회 필요
+items_count: 0,               // 주문 아이템 개수 계산 필요
+payment_method: 'UNKNOWN',    // 결제 수단 조회 필요
+payment_status: 'PENDING',    // 결제 상태 조회 필요
+```
+
+**영향**: ClickHouse `orders_analytics` 테이블의 해당 컬럼이 불완전한 데이터로 채워집니다.
+
+**해결 방법**:
+- `user_email`: UserEntity 조인으로 이메일 조회
+- `items_count`: OrderItemEntity 개수 계산
+- `payment_method`, `payment_status`: PaymentEntity 추가 후 조회
+
+### 2. 미구현 엔티티
+
+MySQL 스키마에는 존재하지만 TypeORM 엔티티가 없는 테이블:
+
+- `payments` 테이블 → `PaymentEntity` 필요
+- `inventory` 테이블 → `InventoryEntity` 필요
+
+**영향**: 결제 및 재고 관리 기능을 NestJS로 구현할 수 없습니다.
+
+### 3. React Frontend 미구현
+
+현재는 정적 HTML UI만 제공되며, React 기반 SPA는 구현되지 않았습니다.
+
+**대안**: `backend/public/` 디렉토리의 HTML 대시보드 사용
 
 ---
 
@@ -520,11 +574,27 @@ export class AnalyticsService {
 
 ### API 엔드포인트
 
+#### ✅ 구현된 엔드포인트
+
+**주문 API**:
 ```
 POST   /api/orders              # 주문 생성 (+ Outbox 이벤트)
 GET    /api/orders/:id          # 주문 조회
 GET    /api/orders/user/:userId # 사용자별 주문 목록
+```
 
+**분석 API**:
+```
+GET    /api/analytics/daily-sales     # 일별 매출 집계
+GET    /api/analytics/hourly-sales    # 시간별 주문 집계
+GET    /api/analytics/order-status    # 주문 상태별 분포
+GET    /api/analytics/stats            # 전체 통계
+GET    /api/analytics/health           # ClickHouse 연결 상태
+```
+
+#### ⏳ 미구현 엔드포인트 (예정)
+
+```
 POST   /api/payments            # 결제 처리
 GET    /api/payments/:orderId   # 결제 조회
 
@@ -533,42 +603,38 @@ GET    /api/products/:id        # 상품 상세
 
 GET    /api/inventory/:productId    # 재고 조회
 PATCH  /api/inventory/:productId    # 재고 업데이트
-
-GET    /api/analytics/daily-sales        # 일별 매출
-GET    /api/analytics/hourly-sales       # 시간별 매출
-GET    /api/analytics/realtime-metrics   # 실시간 메트릭
-GET    /api/analytics/top-products       # 인기 상품
 ```
 
 ### 환경 변수 (.env)
+
+**위치**: `backend/.env`
 
 ```env
 # Application
 NODE_ENV=development
 PORT=3000
 
-# Database - MySQL
-DB_HOST=localhost
-DB_PORT=3306
-DB_USERNAME=admin
-DB_PASSWORD=test123
-DB_DATABASE=ecommerce
+# MySQL (OLTP)
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=admin
+MYSQL_PASSWORD=test123
+MYSQL_DATABASE=ecommerce
 
 # Kafka
-KAFKA_BROKERS=localhost:9092
-KAFKA_CLIENT_ID=nestjs-ecommerce
-KAFKA_GROUP_ID=analytics-transformer
+KAFKA_BROKERS=localhost:19092,localhost:19093,localhost:19094
+KAFKA_CLIENT_ID=ecommerce-backend
+KAFKA_CONSUMER_GROUP_ID=order-event-transformer
 
-# ClickHouse
-CLICKHOUSE_HOST=localhost
-CLICKHOUSE_PORT=8123
-CLICKHOUSE_USERNAME=admin
+# ClickHouse (OLAP)
+CLICKHOUSE_HOST=http://localhost:8123
+CLICKHOUSE_USER=admin
 CLICKHOUSE_PASSWORD=test123
 CLICKHOUSE_DATABASE=analytics
 
 # Outbox Relay
-OUTBOX_POLLING_INTERVAL=*/5 * * * * *  # 5초마다
 OUTBOX_BATCH_SIZE=100
+OUTBOX_POLLING_INTERVAL=*/5 * * * * *  # 5초마다
 ```
 
 ### 주요 의존성
@@ -576,49 +642,50 @@ OUTBOX_BATCH_SIZE=100
 ```json
 {
   "dependencies": {
-    "@nestjs/common": "^10.0.0",
-    "@nestjs/core": "^10.0.0",
-    "@nestjs/typeorm": "^10.0.0",
-    "@nestjs/schedule": "^4.0.0",
-    "@nestjs/config": "^3.0.0",
-    "typeorm": "^0.3.17",
-    "mysql2": "^3.6.0",
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/core": "^11.0.1",
+    "@nestjs/typeorm": "^10.0.2",
+    "@nestjs/schedule": "^6.0.1",
+    "@nestjs/config": "^3.3.0",
+    "typeorm": "^0.3.27",
+    "mysql2": "^3.11.5",
     "kafkajs": "^2.2.4",
-    "@clickhouse/client": "^0.2.0",
-    "class-validator": "^0.14.0",
-    "class-transformer": "^0.5.1"
+    "@clickhouse/client": "^1.12.1",
+    "class-validator": "^0.14.1",
+    "class-transformer": "^0.5.1",
+    "typescript": "^5.7.3"
   }
 }
 ```
 
 ### 개발 로드맵
 
-#### Phase 1: 프로젝트 초기 설정
-- [ ] NestJS 프로젝트 생성
-- [ ] TypeORM + MySQL 연동
-- [ ] 기본 Entity 정의 (Order, Outbox 등)
+#### Phase 1: 프로젝트 초기 설정 ✅
+- [x] NestJS 프로젝트 생성
+- [x] TypeORM + MySQL 연동
+- [x] 기본 Entity 정의 (Order, Outbox, User, Product 등)
 
-#### Phase 2: Outbox Pattern 구현
-- [ ] Outbox Entity 및 Repository
-- [ ] OutboxService (이벤트 저장)
-- [ ] OutboxRelayService (Cron Polling → Kafka)
+#### Phase 2: Outbox Pattern 구현 ✅
+- [x] Outbox Entity 및 Repository
+- [x] OutboxService (이벤트 저장)
+- [x] OutboxRelayService (Cron Polling → Kafka)
 
-#### Phase 3: Order Module 구현
-- [ ] Order CRUD API
-- [ ] 트랜잭션과 Outbox 통합
-- [ ] API 테스트
+#### Phase 3: Order Module 구현 ✅
+- [x] Order CRUD API
+- [x] 트랜잭션과 Outbox 통합
+- [x] API 테스트
 
-#### Phase 4: Kafka Consumer 구현
-- [ ] KafkaConsumerService (Event Transformer)
-- [ ] orders_analytics 토픽 발행
-- [ ] 이벤트 변환 로직
+#### Phase 4: Kafka Consumer 구현 ✅
+- [x] KafkaConsumerService (Event Transformer)
+- [x] orders_analytics 토픽 발행
+- [x] 이벤트 변환 로직 (⚠️ 4개 필드 미완성)
 
-#### Phase 5: Analytics API 구현
-- [ ] ClickHouseService
-- [ ] Analytics Controller (매출, 주문 통계)
+#### Phase 5: Analytics API 구현 ✅
+- [x] ClickHouseService
+- [x] Analytics Controller (매출, 주문 통계)
 - [ ] Grafana 대시보드 연동
 
-#### Phase 6: 테스트 및 검증
+#### Phase 6: 테스트 및 검증 ⏳
 - [ ] 단위 테스트
 - [ ] E2E 테스트
 - [ ] 전체 파이프라인 검증
