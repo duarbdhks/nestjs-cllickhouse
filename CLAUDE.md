@@ -151,11 +151,11 @@ NestJS Monolith → MySQL (OLTP) → Outbox Table
 ### ✅ Phase 2: 백엔드 구현 (완료)
 - NestJS 프로젝트 구현 완료
 - Order Module 구현 (TypeORM + Outbox Pattern)
-- Outbox Relay Service (Cron 5초 폴링 → Kafka Producer)
-- Kafka Consumer (Event Transformer)
 - **Admin Orders API** (주문 삭제 기능)
   - `DELETE /admin/orders/:id` - Soft delete with Outbox event
   - X-Admin-Id header 필수 (감사 추적용)
+- Outbox Relay Service (Cron 5초 폴링 → Kafka Producer)
+- Kafka Consumer (Event Transformer - OrderCreated/OrderDeleted)
 
 ### ⏳ Phase 3-5: Analytics & Frontend (예정)
 - Analytics API (ClickHouse 쿼리)
@@ -190,11 +190,6 @@ NestJS Monolith → MySQL (OLTP) → Outbox Table
 - Status tracking: `processed` boolean flag
 - Order: created_at ASC
 
-### Data Latency Target
-- Outbox → Kafka: ~5-10초 (polling interval)
-- Kafka → ClickHouse: 실시간 (Kafka Connect)
-- ClickHouse Query: <100ms (Materialized Views)
-
 ### Order Deletion (Soft Delete with TTL)
 - **Event Types**: `OrderCreated`, `OrderDeleted` (Outbox에 저장)
 - **Version Control**: Unix timestamp (milliseconds) - ReplacingMergeTree 버전 필드
@@ -203,6 +198,11 @@ NestJS Monolith → MySQL (OLTP) → Outbox Table
 - **MV Filtering**: 모든 Materialized Views는 `WHERE is_deleted=0` 필터 적용
 - **Admin API**: `DELETE /admin/orders/:id` (X-Admin-Id header 필수)
 - **Test Command**: `./scripts/test-deletion-flow.sh`
+
+### Data Latency Target
+- Outbox → Kafka: ~5-10초 (polling interval)
+- Kafka → ClickHouse: 실시간 (Kafka Connect)
+- ClickHouse Query: <100ms (Materialized Views)
 
 ### Troubleshooting Commands
 ```bash

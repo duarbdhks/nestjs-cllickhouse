@@ -85,10 +85,10 @@ docker-compose ps
 ### 3. 초기 데이터베이스 설정
 
 ```bash
-# MySQL 스키마 초기화
+# MySQL 스키마 초기화 (orders.deleted_at 포함)
 docker exec -i mysql mysql -u root -ppassword < scripts/init-mysql.sql
 
-# ClickHouse 스키마 초기화
+# ClickHouse 스키마 초기화 (삭제 지원 필드 + TTL 포함)
 docker exec -i clickhouse clickhouse-client --multiquery < scripts/init-clickhouse.sql
 ```
 
@@ -115,6 +115,7 @@ curl http://localhost:8083/connectors/clickhouse-sink-orders/status
 | **ClickHouse HTTP** | http://localhost:8123 | `admin` / `test123` |
 | **Grafana** | http://localhost:3001 | `admin` / `test123` |
 | **Backend API** | http://localhost:3000 | - |
+| **Admin API** | http://localhost:3000/admin/orders | X-Admin-Id header 필수 |
 | **HTML Dashboard** | http://localhost:3000/ | - |
 
 ## 📊 데이터 흐름
@@ -151,20 +152,21 @@ curl http://localhost:8083/connectors/clickhouse-sink-orders/status
 ### MySQL (OLTP)
 
 ```sql
--- 주문 테이블
+-- 주문 테이블 (Soft Delete 지원)
 CREATE TABLE orders (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     total_amount DECIMAL(10, 2) NOT NULL,
     status ENUM('PENDING', 'COMPLETED', 'CANCELLED'),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL  -- Soft Delete 지원
 );
 
--- Outbox 테이블
+-- Outbox 테이블 (OrderCreated/OrderDeleted 이벤트)
 CREATE TABLE outbox (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     aggregate_id VARCHAR(36) NOT NULL,
-    event_type VARCHAR(100) NOT NULL,
+    event_type VARCHAR(100) NOT NULL,  -- 'OrderCreated', 'OrderDeleted'
     payload JSON NOT NULL,
     processed BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -175,18 +177,26 @@ CREATE TABLE outbox (
 ### ClickHouse (OLAP)
 
 ```sql
--- 분석 테이블
+-- 분석 테이블 (ReplacingMergeTree with Version + Soft Delete + TTL)
 CREATE TABLE analytics.orders_analytics (
     order_id String,
     user_id String,
     order_date DateTime,
     total_amount Decimal(10, 2),
-    status String
-) ENGINE = ReplacingMergeTree(order_date)
-PARTITION BY toYYYYMM(order_date)
-ORDER BY (order_date, user_id, order_id);
+    status String,
 
--- 일별 매출 집계 (Materialized View)
+    -- Deletion support fields
+    version UInt64,                     -- Event version (Unix timestamp in milliseconds)
+    event_type String DEFAULT 'CREATED', -- 'CREATED', 'DELETED'
+    deleted_at Nullable(DateTime),      -- Soft delete timestamp
+    is_deleted UInt8 DEFAULT 0          -- 0=active, 1=deleted
+) ENGINE = ReplacingMergeTree(version)
+PARTITION BY toYYYYMM(order_date)
+ORDER BY (order_date, user_id, order_id)
+TTL assumeNotNull(deleted_at) + INTERVAL 7 DAY DELETE WHERE is_deleted = 1;
+-- Physical deletion 7 days after soft delete
+
+-- 일별 매출 집계 (Materialized View with is_deleted filter)
 CREATE MATERIALIZED VIEW analytics.daily_sales_mv
 ENGINE = SummingMergeTree()
 AS SELECT
@@ -194,6 +204,8 @@ AS SELECT
     count() as order_count,
     sum(total_amount) as total_revenue
 FROM analytics.orders_analytics
+WHERE status NOT IN ('cancelled', 'refunded')
+  AND is_deleted = 0  -- Exclude soft-deleted orders
 GROUP BY order_date;
 ```
 
@@ -262,7 +274,18 @@ curl -X POST http://localhost:3000/api/orders \
   }'
 ```
 
-### 2. 파이프라인 검증
+### 2. 주문 삭제 (Admin API)
+
+```bash
+# Admin API로 주문 삭제 (Soft Delete)
+curl -X DELETE http://localhost:3000/admin/orders/{orderId} \
+  -H "X-Admin-Id: admin-user-123"
+
+# 삭제 플로우 E2E 테스트 (자동화 스크립트)
+./scripts/test-deletion-flow.sh
+```
+
+### 3. 파이프라인 검증
 
 ```bash
 # 1. MySQL에서 주문 확인
@@ -350,14 +373,16 @@ docker-compose restart kafka
    - Kafka 3-node KRaft cluster
    - MySQL, ClickHouse, Grafana, Kafka Connect
 
-2. ✅ **NestJS 백엔드 구현** (대부분 완료)
+2. ✅ **NestJS 백엔드 구현** (완료)
    - ✅ Order Module (CRUD API + Outbox Pattern)
+   - ✅ Admin Orders Module (Soft Delete with OrderDeleted event)
    - ✅ Outbox Module (Outbox Relay Service with Cron)
    - ✅ Kafka Module (Producer + Consumer/Transformer)
    - ✅ ClickHouse Module (쿼리 클라이언트)
    - ✅ Analytics Module (집계 API)
    - ✅ User, Product Module (기본 엔티티)
-   - ⚠️ **미완성**: Payment/Inventory Entity, 데이터 매핑 4개 필드
+   - ✅ Order Deletion Flow (Soft Delete + TTL)
+   - ⚠️ **미완성**: Payment/Inventory Entity
 
 3. ⏳ **Grafana 대시보드 구성** (인프라 준비 완료, 대시보드 미구성)
 
@@ -366,23 +391,18 @@ docker-compose restart kafka
 
 ## ⚠️ 알려진 제약사항
 
-### 1. 데이터 매핑 미완성 (4개 필드)
+### 1. Payment 관리 미완성
 
-`backend/src/kafka/kafka-consumer.service.ts`의 이벤트 변환 로직에서 다음 필드가 미완성 상태입니다:
+주문 생성 후 결제 프로세스 관리는 구현되지 않았습니다:
 
 ```typescript
-user_email: 'TODO',           // 사용자 이메일 조회 필요
-items_count: 0,               // 주문 아이템 개수 계산 필요
 payment_method: 'UNKNOWN',    // 결제 수단 조회 필요
 payment_status: 'PENDING',    // 결제 상태 조회 필요
 ```
 
 **영향**: ClickHouse `orders_analytics` 테이블의 해당 컬럼이 불완전한 데이터로 채워집니다.
 
-**해결 방법**:
-- `user_email`: UserEntity 조인으로 이메일 조회
-- `items_count`: OrderItemEntity 개수 계산
-- `payment_method`, `payment_status`: PaymentEntity 추가 후 조회
+**해결 방법**: PaymentEntity 추가 후 결제 프로세스 구현
 
 ### 2. 미구현 엔티티
 
